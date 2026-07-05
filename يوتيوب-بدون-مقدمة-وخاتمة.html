@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مشغل يوتيوب بدون المقدمة والخاتمة</title>
+<style>
+  :root{
+    --bg:#12100E; --panel:#1D1A17; --panel-2:#26221D; --line:#3A342C;
+    --text:#EDE7DD; --muted:#9C9388; --amber:#F2A65A; --amber-dim:#8A5A2C;
+    --danger:#E0654F; --ok:#7FC4A0;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Arial,sans-serif;min-height:100vh;display:flex;justify-content:center;padding:24px 14px 50px;}
+  .mono{font-family:"SF Mono",SFMono-Regular,Consolas,"Liberation Mono",Menlo,monospace;}
+  .wrap{width:100%;max-width:560px;}
+  header{margin-bottom:20px;}
+  .eyebrow{font-size:12px;letter-spacing:.12em;color:var(--amber);text-transform:uppercase;margin-bottom:6px;}
+  h1{font-size:24px;margin:0 0 8px;font-weight:700;line-height:1.35;}
+  .sub{color:var(--muted);font-size:13.5px;line-height:1.6;margin:0;}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px;}
+
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;}
+  .field input[type=text], .field input[type=number]{
+    width:100%;background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:12px;font-size:14px;
+  }
+  .field input:focus{outline:none;border-color:var(--amber);}
+  .fields-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .field-note{font-size:11px;color:var(--muted);margin-top:4px;}
+
+  button.primary{
+    width:100%;background:var(--amber);color:#1a1410;border:none;border-radius:10px;
+    padding:14px;font-size:15px;font-weight:700;cursor:pointer;
+  }
+  button.primary:disabled{opacity:.4;cursor:not-allowed;}
+  button.primary:active:not(:disabled){transform:scale(.98);}
+
+  .player-wrap{
+    position:relative;width:100%;aspect-ratio:16/9;background:#000;
+    border-radius:12px;overflow:hidden;margin-top:16px;display:none;
+  }
+  .player-wrap.show{display:block;}
+  #player{position:absolute;inset:0;width:100%;height:100%;}
+
+  .end-screen{
+    position:absolute;inset:0;background:rgba(10,9,8,.94);
+    display:none;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:20px;gap:10px;
+  }
+  .end-screen.show{display:flex;}
+  .end-screen .big{font-size:15px;font-weight:700;}
+  .end-screen .small{font-size:12px;color:var(--muted);}
+  .end-screen button{
+    margin-top:8px;background:var(--amber-dim);border:1px solid var(--amber);color:var(--text);
+    padding:8px 16px;border-radius:8px;font-size:13px;cursor:pointer;
+  }
+
+  .status-line{font-size:12px;color:var(--muted);margin-top:12px;text-align:center;min-height:16px;}
+  .error-line{font-size:12px;color:var(--danger);margin-top:10px;text-align:center;display:none;}
+  .error-line.show{display:block;}
+
+  footer{color:var(--muted);font-size:11px;text-align:center;margin-top:18px;line-height:1.7;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">تخطي المقدمة والخاتمة تلقائيًا</div>
+    <h1>شغّل الفيديو بدون أول وآخر جزء</h1>
+    <p class="sub">الصق رابط فيديو يوتيوب، والمشغل يبدأ تلقائيًا بعد المدة اللي تحددها من البداية، ويوقف تلقائيًا قبل نفس المدة من النهاية.</p>
+  </header>
+
+  <div class="card">
+    <div class="field">
+      <label>رابط فيديو يوتيوب</label>
+      <input type="text" id="ytUrl" placeholder="https://www.youtube.com/watch?v=...">
+    </div>
+
+    <div class="fields-row">
+      <div class="field">
+        <label>تخطي من النهاية</label>
+        <input type="text" id="endSkip" value="1:10">
+        <div class="field-note">الصيغة: دقيقة:ثانية</div>
+      </div>
+      <div class="field">
+        <label>تخطي من البداية</label>
+        <input type="text" id="startSkip" value="1:10">
+        <div class="field-note">الصيغة: دقيقة:ثانية</div>
+      </div>
+    </div>
+
+    <button class="primary" id="loadBtn">تشغيل الفيديو</button>
+
+    <div class="player-wrap" id="playerWrap">
+      <div id="player"></div>
+      <div class="end-screen" id="endScreen">
+        <div class="big">وصلت لنهاية الجزء المطلوب مشاهدته</div>
+        <div class="small" id="endDetail"></div>
+        <button id="replayBtn">إعادة التشغيل من البداية المحددة</button>
+      </div>
+    </div>
+
+    <div class="status-line" id="statusLine"></div>
+    <div class="error-line" id="errorLine"></div>
+  </div>
+
+  <footer>يستخدم مشغل يوتيوب الرسمي المدمج — لا تحميل، لا تخزين، فقط تحكم بنقطة البداية والنهاية.</footer>
+</div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+  const ytUrlInput = document.getElementById('ytUrl');
+  const startSkipInput = document.getElementById('startSkip');
+  const endSkipInput = document.getElementById('endSkip');
+  const loadBtn = document.getElementById('loadBtn');
+  const playerWrap = document.getElementById('playerWrap');
+  const endScreen = document.getElementById('endScreen');
+  const endDetail = document.getElementById('endDetail');
+  const replayBtn = document.getElementById('replayBtn');
+  const statusLine = document.getElementById('statusLine');
+  const errorLine = document.getElementById('errorLine');
+
+  let player = null;
+  let apiReady = false;
+  let watchInterval = null;
+  let startSeconds = 70;
+  let endBoundary = 0; // computed once duration is known
+
+  function showError(msg){ errorLine.textContent = msg; errorLine.classList.add('show'); }
+  function clearError(){ errorLine.textContent=''; errorLine.classList.remove('show'); }
+
+  function parseTimeToSeconds(str){
+    str = (str||'').trim();
+    if(!str) return 0;
+    if(str.includes(':')){
+      const parts = str.split(':').map(p=>Number(p)||0);
+      if(parts.length === 2) return parts[0]*60 + parts[1];
+      if(parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+    }
+    return Number(str)||0;
+  }
+
+  function fmtTime(s){
+    s = Math.max(0, Math.round(s));
+    const m = Math.floor(s/60);
+    const sec = s%60;
+    return m+":"+String(sec).padStart(2,'0');
+  }
+
+  function extractVideoId(url){
+    url = (url||'').trim();
+    const patterns = [
+      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/
+    ];
+    for(const p of patterns){
+      const m = url.match(p);
+      if(m) return m[1];
+    }
+    // fallback: maybe they pasted just the raw 11-char ID
+    if(/^[A-Za-z0-9_-]{11}$/.test(url)) return url;
+    return null;
+  }
+
+  window.onYouTubeIframeAPIReady = function(){
+    apiReady = true;
+  };
+
+  function createPlayer(videoId){
+    if(player){
+      player.loadVideoById({videoId, startSeconds});
+      return;
+    }
+    player = new YT.Player('player', {
+      videoId: videoId,
+      playerVars: {
+        start: startSeconds,
+        rel: 0,
+        modestbranding: 1,
+        playsinline: 1
+      },
+      events: {
+        onReady: onPlayerReady,
+        onStateChange: onPlayerStateChange,
+        onError: onPlayerError
+      }
+    });
+  }
+
+  function onPlayerReady(e){
+    const duration = player.getDuration();
+    const endSkipSeconds = parseTimeToSeconds(endSkipInput.value);
+    endBoundary = duration - endSkipSeconds;
+    if(endBoundary <= startSeconds){
+      showError("مجموع مدة التخطي من البداية والنهاية أكبر من طول الفيديو");
+      return;
+    }
+    statusLine.textContent = "يشتغل من "+fmtTime(startSeconds)+" إلى "+fmtTime(endBoundary)+" (من أصل "+fmtTime(duration)+")";
+    endScreen.classList.remove('show');
+    e.target.playVideo();
+    startWatching();
+  }
+
+  function onPlayerError(e){
+    showError("تعذر تحميل هذا الفيديو (قد يكون خاص أو محذوف أو ممنوع من التضمين). كود الخطأ: " + e.data);
+  }
+
+  function onPlayerStateChange(e){
+    if(e.data === YT.PlayerState.PLAYING){
+      endScreen.classList.remove('show');
+      startWatching();
+    }
+    if(e.data === YT.PlayerState.ENDED || e.data === YT.PlayerState.PAUSED){
+      stopWatching();
+    }
+  }
+
+  function startWatching(){
+    stopWatching();
+    watchInterval = setInterval(()=>{
+      if(!player || typeof player.getCurrentTime !== 'function') return;
+      const t = player.getCurrentTime();
+      if(endBoundary && t >= endBoundary){
+        player.pauseVideo();
+        endDetail.textContent = "توقف عند " + fmtTime(endBoundary);
+        endScreen.classList.add('show');
+        stopWatching();
+      }
+    }, 500);
+  }
+  function stopWatching(){
+    if(watchInterval){ clearInterval(watchInterval); watchInterval = null; }
+  }
+
+  replayBtn.addEventListener('click', ()=>{
+    endScreen.classList.remove('show');
+    player.seekTo(startSeconds, true);
+    player.playVideo();
+  });
+
+  loadBtn.addEventListener('click', ()=>{
+    clearError();
+    statusLine.textContent = '';
+    const videoId = extractVideoId(ytUrlInput.value);
+    if(!videoId){
+      showError("الرابط غير صالح، تأكد إنه رابط يوتيوب صحيح");
+      return;
+    }
+    startSeconds = parseTimeToSeconds(startSkipInput.value);
+
+    if(!apiReady){
+      statusLine.textContent = "جاري تحميل مشغل يوتيوب...";
+      const waitForApi = setInterval(()=>{
+        if(apiReady){
+          clearInterval(waitForApi);
+          playerWrap.classList.add('show');
+          createPlayer(videoId);
+        }
+      }, 200);
+      return;
+    }
+    playerWrap.classList.add('show');
+    createPlayer(videoId);
+  });
+</script>
+</body>
+</html>
